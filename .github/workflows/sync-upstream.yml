@@ -1,0 +1,26 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync main with upstream
+        run: |
+          git remote add upstream https://github.com/514-labs/dnsglobe.git
+          git fetch upstream main
+          git reset --hard upstream/main
+          git push --force-with-lease origin main
