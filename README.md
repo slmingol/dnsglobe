@@ -70,20 +70,15 @@ x eget use 514-labs/dnsglobe         # from (from its GitHub release)
 Or run via Docker/Podman — no Rust toolchain required:
 
 ```sh
+# TUI (terminal)
 docker run -it --rm ghcr.io/slmingol/dnsglobe:edge example.com
-```
-
-Shell alias for convenience:
-
-```sh
 alias dnsglobe='docker run -it --rm ghcr.io/slmingol/dnsglobe:edge'
+
+# Web UI — open http://localhost:8080 in a browser
+docker compose up dnsglobe-web
 ```
 
-A `docker-compose.yaml` is also provided for compose-based workflows:
-
-```sh
-docker compose run --rm dnsglobe example.com
-```
+Both services are in the provided `docker-compose.yaml`.
 
 Run:
 
