@@ -1,9 +1,10 @@
 services:
   dnsglobe:
+    # Pull from GHCR (no local build needed):
+    #   image: ghcr.io/slmingol/dnsglobe:latest
+    # Build locally:
     build: .
-    image: dnsglobe:latest
+    image: ghcr.io/slmingol/dnsglobe:latest
     stdin_open: true
     tty: true
-    # Pass DNS target and flags as: docker compose run --rm dnsglobe example.com
-    # Or set a default here:
-    # command: ["example.com"]
+    # Usage: docker compose run --rm dnsglobe example.com [flags]
