@@ -20,7 +20,13 @@ jobs:
 
       - name: Sync main with upstream
         run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
           git remote add upstream https://github.com/514-labs/dnsglobe.git
           git fetch upstream main
           git reset --hard upstream/main
+          # Restore this workflow file — GitHub requires it on the default
+          # branch for cron to fire; upstream will never carry it.
+          git checkout HEAD@{1} -- .github/workflows/sync-upstream.yml
+          git diff --cached --quiet || git commit -m "ci: restore sync workflow after upstream sync [skip ci]"
           git push --force-with-lease origin main
