@@ -1,0 +1,9 @@
+services:
+  dnsglobe:
+    build: .
+    image: dnsglobe:latest
+    stdin_open: true
+    tty: true
+    # Pass DNS target and flags as: docker compose run --rm dnsglobe example.com
+    # Or set a default here:
+    # command: ["example.com"]
