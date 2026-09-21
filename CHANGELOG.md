@@ -15,6 +15,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `dnsglobe-web` binary: Axum web server that streams DNS propagation results
   over WebSocket to a browser UI with a live resolver table and rotating D3
   orthographic globe.
+- Web UI watch mode: a toggle button schedules a 30-second countdown after
+  each completed poll and re-queries automatically until stopped, mirroring
+  the TUI's `Ctrl+R` watch behaviour.
+- Web UI ECS input: a text field accepts a CIDR or bare IP (e.g.
+  `203.0.113.0/24`) and attaches it as an EDNS Client Subnet option to every
+  query, so GeoDNS zones answer for that client network.
+- Web UI record-type tabs: `A | AAAA | CNAME | MX | NS | TXT | SOA` tab
+  buttons replace the dropdown; the active tab is highlighted with an accent
+  underline.
+- Web UI share URL: starting a check writes `?domain=`, `?type=`, and `?ecs=`
+  to the address bar via `history.replaceState`; loading a URL with those
+  parameters pre-fills the inputs and starts the check automatically.
 
 ## [0.5.0] - 2026-08-07
 
