@@ -25,8 +25,8 @@ jobs:
         run: |
           docker pull ghcr.io/slmingol/dnsglobe:edge
           docker run -d --name dnsglobe-web -p 8080:8080 \
-            ghcr.io/slmingol/dnsglobe:edge \
-            /usr/local/bin/dnsglobe-web
+            --entrypoint /usr/local/bin/dnsglobe-web \
+            ghcr.io/slmingol/dnsglobe:edge
           echo "Waiting for server..."
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8080 > /dev/null 2>&1; then
