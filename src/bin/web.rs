@@ -5,7 +5,7 @@ use axum::extract::Query;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
-use dnsglobe::dns::{self, QueryResult};
+use dnsglobe::dns::{self, parse_ecs, QueryResult};
 use dnsglobe::resolvers;
 use hickory_resolver::proto::rr::RecordType;
 use serde::Deserialize;
@@ -20,6 +20,8 @@ struct WsParams {
     domain: String,
     #[serde(rename = "type", default = "default_rtype")]
     rtype: String,
+    #[serde(default)]
+    ecs: Option<String>,
 }
 
 fn default_rtype() -> String {
@@ -56,6 +58,21 @@ async fn handle_ws(mut socket: WebSocket, params: WsParams) {
         }
     };
 
+    let subnet = match params.ecs.as_deref().filter(|s| !s.is_empty()) {
+        Some(s) => match parse_ecs(s) {
+            Ok(cs) => Some(cs),
+            Err(e) => {
+                let _ = socket
+                    .send(Message::Text(
+                        json!({"error": format!("invalid ECS subnet: {e}")}).to_string().into(),
+                    ))
+                    .await;
+                return;
+            }
+        },
+        None => None,
+    };
+
     let resolvers = resolvers::defaults();
     let total = resolvers.len();
 
@@ -89,8 +106,9 @@ async fn handle_ws(mut socket: WebSocket, params: WsParams) {
         let location = resolver.location.clone();
         let coords = resolver.coords;
 
+        let subnet = subnet.clone();
         tasks.spawn(async move {
-            let (result, elapsed, _ecs_honored) = dns::query(server, domain, rtype, None).await;
+            let (result, elapsed, _ecs_honored) = dns::query(server, domain, rtype, subnet).await;
             let ping_ms = elapsed.as_millis() as u64;
 
             let (status, answer, ttl) = match result {

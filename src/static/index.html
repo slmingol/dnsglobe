@@ -33,11 +33,11 @@
   }
 
   header {
-    padding: 16px 24px;
+    padding: 12px 24px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
   }
 
@@ -70,15 +70,31 @@
   }
   input[type="text"]:focus { border-color: var(--accent); }
 
-  select {
+  .ecs-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ecs-label {
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .ecs-input {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
     padding: 6px 10px;
     border-radius: 6px;
     font: inherit;
+    width: 160px;
     outline: none;
-    cursor: pointer;
+  }
+  .ecs-input:focus { border-color: var(--accent); }
+
+  .btn-row {
+    display: flex;
+    gap: 6px;
   }
 
   button {
@@ -91,12 +107,51 @@
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.15s;
+    white-space: nowrap;
   }
   button:hover { opacity: 0.85; }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.watch-active {
+    background: var(--pending);
+  }
+  button.secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .tabs {
+    padding: 0 24px;
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 7px 14px;
+    cursor: pointer;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    margin-bottom: -1px;
+    transition: color 0.1s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); opacity: 1; }
+  .tab:disabled { opacity: 1; }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
 
   .progress-wrap {
-    padding: 0 24px;
     height: 3px;
     background: var(--surface);
   }
@@ -220,19 +275,27 @@
 <header>
   <h1>&#127757; DNS Globe</h1>
   <div class="controls">
-    <input type="text" id="domain" placeholder="example.com" value="">
-    <select id="rtype">
-      <option>A</option>
-      <option>AAAA</option>
-      <option>CNAME</option>
-      <option>MX</option>
-      <option>NS</option>
-      <option>TXT</option>
-      <option>SOA</option>
-    </select>
-    <button id="check-btn" onclick="startCheck()">Check</button>
+    <input type="text" id="domain" placeholder="example.com">
+    <div class="ecs-wrap">
+      <span class="ecs-label">ECS</span>
+      <input type="text" id="ecs" class="ecs-input" placeholder="203.0.113.0/24">
+    </div>
+    <div class="btn-row">
+      <button id="check-btn" onclick="startCheck()">Check</button>
+      <button id="watch-btn" class="secondary" onclick="toggleWatch()">Watch</button>
+    </div>
   </div>
 </header>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" onclick="setTab(this,'A')">A</button>
+  <button class="tab" onclick="setTab(this,'AAAA')">AAAA</button>
+  <button class="tab" onclick="setTab(this,'CNAME')">CNAME</button>
+  <button class="tab" onclick="setTab(this,'MX')">MX</button>
+  <button class="tab" onclick="setTab(this,'NS')">NS</button>
+  <button class="tab" onclick="setTab(this,'TXT')">TXT</button>
+  <button class="tab" onclick="setTab(this,'SOA')">SOA</button>
+</div>
 
 <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
 <div class="status-line" id="status-line">Enter a domain and click Check.</div>
@@ -268,13 +331,20 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-let resolverMap = {};   // index → row data
+let resolverMap = {};
 let ws = null;
 let animFrame = null;
 let rotation = 0;
 let total = 0;
 let done = 0;
 let worldData = null;
+let landFeatures = null;
+let activeRtype = 'A';
+
+// Watch mode
+let watchMode = false;
+let watchTimer = null;
+let watchCountdown = 0;
 
 // ── Globe setup ────────────────────────────────────────────────────────────
 const svgEl = document.getElementById('globe-svg');
@@ -286,7 +356,6 @@ const projection = d3.geoOrthographic()
 const path = d3.geoPath().projection(projection);
 const svg = d3.select('#globe-svg');
 
-// Sphere fill
 svg.append('circle')
   .attr('cx', W / 2).attr('cy', H / 2).attr('r', R)
   .attr('fill', '#1a2030');
@@ -294,13 +363,9 @@ svg.append('circle')
 const landGroup = svg.append('g').attr('class', 'land');
 const dotGroup  = svg.append('g').attr('class', 'dots');
 
-// Limb ring
 svg.append('circle')
   .attr('cx', W / 2).attr('cy', H / 2).attr('r', R)
   .attr('fill', 'none').attr('stroke', '#30363d').attr('stroke-width', 1);
-
-// Load world topojson — topojson-client is already in <head> so topojson is defined
-let landFeatures = null;
 
 fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
   .then(r => r.json())
@@ -315,9 +380,7 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
       .attr('stroke-width', 0.4);
     animate();
   })
-  .catch(() => {
-    animate();
-  });
+  .catch(() => { animate(); });
 
 function statusColor(status) {
   switch (status) {
@@ -326,7 +389,7 @@ function statusColor(status) {
     case 'error':
     case 'servfail': return '#f85149';
     case 'nxdomain': return '#8b949e';
-    default:         return '#d29922'; // pending
+    default:         return '#d29922';
   }
 }
 
@@ -360,6 +423,14 @@ function animate() {
   animFrame = requestAnimationFrame(animate);
 }
 
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function setTab(el, rtype) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  activeRtype = rtype;
+  updateUrl();
+}
+
 // ── Table ──────────────────────────────────────────────────────────────────
 function pingClass(ms) {
   if (ms == null) return 'ping';
@@ -390,35 +461,90 @@ function renderRow(r) {
   `;
 }
 
+// ── Share URL ──────────────────────────────────────────────────────────────
+function updateUrl() {
+  const domain = document.getElementById('domain').value.trim();
+  const ecs = document.getElementById('ecs').value.trim();
+  const params = new URLSearchParams();
+  if (domain) params.set('domain', domain);
+  if (activeRtype && activeRtype !== 'A') params.set('type', activeRtype);
+  if (ecs) params.set('ecs', ecs);
+  const qs = params.toString();
+  history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+}
+
+// ── Watch mode ─────────────────────────────────────────────────────────────
+function toggleWatch() {
+  watchMode = !watchMode;
+  const btn = document.getElementById('watch-btn');
+  if (watchMode) {
+    btn.textContent = 'Stop';
+    btn.classList.remove('secondary');
+    btn.classList.add('watch-active');
+  } else {
+    btn.textContent = 'Watch';
+    btn.classList.add('secondary');
+    btn.classList.remove('watch-active');
+    clearWatchTimer();
+  }
+}
+
+function clearWatchTimer() {
+  if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  watchCountdown = 0;
+}
+
+function scheduleRepoll(domain, rtype) {
+  if (!watchMode) return;
+  clearWatchTimer();
+  watchCountdown = 30;
+  watchTimer = setInterval(() => {
+    watchCountdown--;
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    document.getElementById('status-line').textContent =
+      `${pct}% propagated (${done}/${total}) — next poll in ${watchCountdown}s`;
+    if (watchCountdown <= 0) {
+      clearWatchTimer();
+      startCheck();
+    }
+  }, 1000);
+}
+
 // ── WebSocket ──────────────────────────────────────────────────────────────
 function startCheck() {
   const domain = document.getElementById('domain').value.trim();
   if (!domain) { alert('Enter a domain first.'); return; }
-  const rtype  = document.getElementById('rtype').value;
+  const ecs = document.getElementById('ecs').value.trim();
 
+  clearWatchTimer();
   if (ws) { ws.close(); ws = null; }
 
-  // Reset state
   resolverMap = {};
   done = 0;
   total = 0;
   document.getElementById('tbody').innerHTML = '';
   document.getElementById('progress').style.width = '0%';
-  document.getElementById('status-line').textContent = `Querying ${domain} ${rtype}…`;
+  document.getElementById('status-line').textContent = `Querying ${domain} ${activeRtype}${ecs ? ' ecs=' + ecs : ''}…`;
   document.getElementById('check-btn').disabled = true;
 
+  updateUrl();
+
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws?domain=${encodeURIComponent(domain)}&type=${rtype}`);
+  let url = `${proto}://${location.host}/ws?domain=${encodeURIComponent(domain)}&type=${activeRtype}`;
+  if (ecs) url += `&ecs=${encodeURIComponent(ecs)}`;
+  ws = new WebSocket(url);
 
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
 
     if (msg.done) {
+      const pct = total > 0 ? Math.round(done / total * 100) : 0;
       document.getElementById('status-line').textContent =
-        `Done — ${total} resolvers queried for ${domain} ${rtype}`;
+        `Done — ${pct}% propagated (${done}/${total}) for ${domain} ${activeRtype}`;
       document.getElementById('check-btn').disabled = false;
       document.getElementById('progress').style.width = '100%';
       ws.close();
+      scheduleRepoll(domain, activeRtype);
       return;
     }
 
@@ -428,7 +554,6 @@ function startCheck() {
       return;
     }
 
-    // Initial pending rows set total
     if (msg.total > 0) total = msg.total;
 
     resolverMap[msg.index] = msg;
@@ -436,10 +561,10 @@ function startCheck() {
 
     if (msg.status !== 'pending') {
       done++;
-      const pct = total > 0 ? (done / total * 100).toFixed(0) : 0;
+      const pct = total > 0 ? Math.round(done / total * 100) : 0;
       document.getElementById('progress').style.width = pct + '%';
       document.getElementById('status-line').textContent =
-        `${done}/${total} resolvers responded — ${domain} ${rtype}`;
+        `${done}/${total} responded — ${domain} ${activeRtype}`;
     }
   };
 
@@ -453,10 +578,31 @@ function startCheck() {
   };
 }
 
-// Allow Enter key in domain field
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────
 document.getElementById('domain').addEventListener('keydown', e => {
   if (e.key === 'Enter') startCheck();
 });
+document.getElementById('ecs').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startCheck();
+});
+
+// ── Load from URL params ───────────────────────────────────────────────────
+(function () {
+  const params = new URLSearchParams(location.search);
+  const domain = params.get('domain');
+  const type   = params.get('type');
+  const ecs    = params.get('ecs');
+
+  if (domain) document.getElementById('domain').value = domain;
+  if (ecs)    document.getElementById('ecs').value = ecs;
+  if (type) {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.textContent === type);
+    });
+    activeRtype = type;
+  }
+  if (domain) startCheck();
+})();
 </script>
 </body>
 </html>
