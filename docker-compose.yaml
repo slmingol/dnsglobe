@@ -1,17 +1,15 @@
 services:
   dnsglobe:
-    # Pull from GHCR (no local build needed):
-    #   image: ghcr.io/slmingol/dnsglobe:latest
-    # Build locally:
-    build: .
-    image: ghcr.io/slmingol/dnsglobe:latest
+    image: ghcr.io/slmingol/dnsglobe:edge
+    pull_policy: always
     stdin_open: true
     tty: true
     # Usage: docker compose run --rm dnsglobe example.com [flags]
+    # To build locally: docker compose build
 
   dnsglobe-web:
-    build: .
-    image: ghcr.io/slmingol/dnsglobe:latest
+    image: ghcr.io/slmingol/dnsglobe:edge
+    pull_policy: always
     entrypoint: ["/usr/local/bin/dnsglobe-web"]
     ports:
       - "8080:8080"
