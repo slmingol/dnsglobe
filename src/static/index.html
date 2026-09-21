@@ -327,6 +327,8 @@
   <span>dnsglobe v{{VERSION}}</span>
   <span>&middot;</span>
   <a href="https://github.com/514-labs/dnsglobe" target="_blank" rel="noopener">github.com/514-labs/dnsglobe</a>
+  <span>&middot;</span>
+  <span>Enter: check &nbsp; Ctrl+R: watch &nbsp; Tab/Shift+Tab: record type &nbsp; Ctrl+U: clear</span>
 </footer>
 
 <script>
@@ -579,11 +581,45 @@ function startCheck() {
 }
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+const RTYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'SOA'];
+
 document.getElementById('domain').addEventListener('keydown', e => {
   if (e.key === 'Enter') startCheck();
 });
 document.getElementById('ecs').addEventListener('keydown', e => {
   if (e.key === 'Enter') startCheck();
+});
+
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  const inInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+  // Ctrl+R — toggle watch (matches TUI)
+  if (e.key === 'r' && e.ctrlKey) {
+    e.preventDefault();
+    toggleWatch();
+    return;
+  }
+
+  // Ctrl+U — clear domain (matches TUI)
+  if (e.key === 'u' && e.ctrlKey) {
+    e.preventDefault();
+    document.getElementById('domain').value = '';
+    document.getElementById('domain').focus();
+    return;
+  }
+
+  // Tab / Shift+Tab — cycle record type (matches TUI); skip when typing in input
+  if (e.key === 'Tab' && !inInput) {
+    e.preventDefault();
+    const idx = RTYPES.indexOf(activeRtype);
+    const next = e.shiftKey
+      ? RTYPES[(idx - 1 + RTYPES.length) % RTYPES.length]
+      : RTYPES[(idx + 1) % RTYPES.length];
+    const tabEl = [...document.querySelectorAll('.tab')].find(t => t.textContent === next);
+    if (tabEl) setTab(tabEl, next);
+    return;
+  }
 });
 
 // ── Load from URL params ───────────────────────────────────────────────────
