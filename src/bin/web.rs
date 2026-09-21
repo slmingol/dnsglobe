@@ -13,6 +13,7 @@ use serde_json::json;
 use tokio::task::JoinSet;
 
 static INDEX_HTML: &str = include_str!("../static/index.html");
+static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Deserialize)]
 struct WsParams {
@@ -26,7 +27,7 @@ fn default_rtype() -> String {
 }
 
 async fn index() -> impl IntoResponse {
-    Html(INDEX_HTML)
+    Html(INDEX_HTML.replace("{{VERSION}}", VERSION))
 }
 
 async fn ws_handler(
