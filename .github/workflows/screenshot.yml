@@ -1,0 +1,71 @@
+name: Web UI Screenshot
+
+on:
+  workflow_run:
+    workflows: [Container]
+    branches: [development]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  screenshot:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: development
+
+      - name: Start dnsglobe-web
+        run: |
+          docker run -d --name dnsglobe-web -p 8080:8080 \
+            ghcr.io/slmingol/dnsglobe:edge \
+            /usr/local/bin/dnsglobe-web
+          # wait for server ready
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:8080 && break || sleep 1
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install chromium --with-deps
+
+      - name: Capture screenshot
+        run: |
+          node - <<'EOF'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            await page.setViewportSize({ width: 1400, height: 860 });
+            await page.goto('http://localhost:8080?domain=example.com&type=A');
+            // wait for "Done" in the status line
+            await page.waitForFunction(
+              () => {
+                const s = document.getElementById('status-line');
+                return s && s.textContent.startsWith('Done');
+              },
+              { timeout: 90000 }
+            );
+            await page.screenshot({ path: 'demo/web-ui.png' });
+            await browser.close();
+            console.log('screenshot saved');
+          })().catch(e => { console.error(e); process.exit(1); });
+          EOF
+
+      - name: Commit screenshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add demo/web-ui.png
+          git diff --staged --quiet && echo "no change" || \
+            git commit -m "chore: update web UI screenshot [skip ci]" && \
+            git push origin development
