@@ -29,7 +29,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parameters pre-fills the inputs and starts the check automatically.
 - Web UI keyboard shortcuts matching the TUI: `Enter` submits, `Ctrl+R`
   toggles watch mode, `Tab`/`Shift+Tab` cycles record type, `Ctrl+U` clears
-  the domain field. Hints shown in the footer.
+  the domain field. `?` opens a keyboard shortcuts modal. Hints shown in the
+  footer.
 
 ## [0.5.0] - 2026-08-07
 

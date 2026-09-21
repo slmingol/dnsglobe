@@ -6,8 +6,9 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
-const BASE = process.argv[2] || 'http://localhost:8080';
-const OUT  = path.join(__dirname, '../demo/web-ui.png');
+const BASE    = process.argv[2] || 'http://localhost:8080';
+const OUT     = path.join(__dirname, '../demo/web-ui.png');
+const OUT_KBD = path.join(__dirname, '../demo/web-ui-shortcuts.png');
 
 (async () => {
   const browser = await chromium.launch({
@@ -31,6 +32,15 @@ const OUT  = path.join(__dirname, '../demo/web-ui.png');
 
     await page.screenshot({ path: OUT });
     console.log(`screenshot saved → ${OUT}`);
+
+    // keyboard shortcuts modal
+    await page.keyboard.press('?');
+    await page.waitForFunction(
+      () => document.getElementById('shortcuts-modal')?.classList.contains('open'),
+      { timeout: 3000 }
+    );
+    await page.screenshot({ path: OUT_KBD });
+    console.log(`screenshot saved → ${OUT_KBD}`);
   } finally {
     await browser.close();
   }

@@ -268,6 +268,61 @@
   @media (max-width: 900px) {
     .globe-panel { display: none; }
   }
+
+  /* ── Keyboard shortcuts modal ── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    min-width: 360px;
+    max-width: 480px;
+    width: 90%;
+  }
+
+  .modal h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  .modal table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .modal td {
+    padding: 5px 8px;
+    max-width: none;
+    white-space: nowrap;
+  }
+  .modal td:first-child {
+    color: var(--accent);
+    font-weight: 600;
+    width: 1%;
+    padding-right: 20px;
+  }
+  .modal td:last-child { color: var(--muted); }
+  .modal tr + tr td { border-top: 1px solid var(--border); }
+
+  .modal-close {
+    display: block;
+    margin-top: 18px;
+    text-align: right;
+    color: var(--muted);
+    font-size: 11px;
+  }
 </style>
 </head>
 <body>
@@ -323,12 +378,27 @@
   </div>
 </main>
 
+<div class="modal-backdrop" id="shortcuts-modal" onclick="closeShortcuts(event)">
+  <div class="modal">
+    <h2>Keyboard shortcuts</h2>
+    <table>
+      <tr><td>Enter</td><td>Submit check</td></tr>
+      <tr><td>Ctrl+R</td><td>Toggle watch mode</td></tr>
+      <tr><td>Tab / Shift+Tab</td><td>Cycle record type</td></tr>
+      <tr><td>Ctrl+U</td><td>Clear domain field</td></tr>
+      <tr><td>?</td><td>Show this help</td></tr>
+      <tr><td>Esc</td><td>Close this dialog</td></tr>
+    </table>
+    <span class="modal-close">press Esc or click outside to close</span>
+  </div>
+</div>
+
 <footer>
   <span>dnsglobe v{{VERSION}}</span>
   <span>&middot;</span>
   <a href="https://github.com/514-labs/dnsglobe" target="_blank" rel="noopener">github.com/514-labs/dnsglobe</a>
   <span>&middot;</span>
-  <span>Enter: check &nbsp; Ctrl+R: watch &nbsp; Tab/Shift+Tab: record type &nbsp; Ctrl+U: clear</span>
+  <span>Enter: check &nbsp; Ctrl+R: watch &nbsp; Tab/Shift+Tab: record type &nbsp; Ctrl+U: clear &nbsp; ?: help</span>
 </footer>
 
 <script>
@@ -580,6 +650,16 @@ function startCheck() {
   };
 }
 
+// ── Shortcuts modal ────────────────────────────────────────────────────────
+function openShortcuts() {
+  document.getElementById('shortcuts-modal').classList.add('open');
+}
+function closeShortcuts(e) {
+  if (!e || e.target === document.getElementById('shortcuts-modal')) {
+    document.getElementById('shortcuts-modal').classList.remove('open');
+  }
+}
+
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────
 const RTYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'SOA'];
 
@@ -618,6 +698,19 @@ document.addEventListener('keydown', e => {
       : RTYPES[(idx + 1) % RTYPES.length];
     const tabEl = [...document.querySelectorAll('.tab')].find(t => t.textContent === next);
     if (tabEl) setTab(tabEl, next);
+    return;
+  }
+
+  // ? — open shortcuts modal (skip when typing)
+  if (e.key === '?' && !inInput) {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
+
+  // Escape — close modal
+  if (e.key === 'Escape') {
+    closeShortcuts();
     return;
   }
 });
